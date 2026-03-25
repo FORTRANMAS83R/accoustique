@@ -1,4 +1,5 @@
 import numpy as np
+import matplotlib.pyplot as plt
 def boric_acid_contribution(c, S, T, z, pH):
     A1 = 8.86 / c * 10 ** (0.78 * pH - 5)
     P1 = 1
@@ -14,10 +15,13 @@ def magnesium_sulfate_contribution(c, S, T, z):
 
 def pure_water_contribution(T, z):
     P3 = 1 - 3.83e-5 * z + 4.9e-10 * z**2
-    if T <= 20: 
-        A3 = 4.937e-4 - 2.59e-5 * T + 9.11e-7 * T**2 - 1.5e-8 * T**3 
-    else:
-        A3 = 3.964e-4 - 1.146e-5 * T + 1.45e-7 * T**2 - 6.5e-10 * T**3
+    A3 = np.where(T <= 20,
+                  4.937e-4 - 2.59e-5 * T + 9.11e-7 * T**2 - 1.5e-8 * T**3,
+                  3.964e-4 - 1.146e-5 * T + 1.45e-7 * T**2 - 6.5e-10 * T**3)
+    # if T <= 20: 
+    #     A3 = 4.937e-4 - 2.59e-5 * T + 9.11e-7 * T**2 - 1.5e-8 * T**3 
+    # else:
+    #     A3 = 3.964e-4 - 1.146e-5 * T + 1.45e-7 * T**2 - 6.5e-10 * T**3
     return A3, P3
 
 def compute_alpha(c, S, T, z, f, pH = 7.5): 
@@ -26,4 +30,28 @@ def compute_alpha(c, S, T, z, f, pH = 7.5):
     A3, P3 = pure_water_contribution(T, z)
     return A1 * P1 * (f1 * f**2 / (f1**2 + f**2)) + A2 * P2 * (f2 * f**2 / (f2**2 + f**2)) + A3 * P3 * f**2 
 
-print(compute_alpha(1500, 35, 10, 1000, 40))
+def update_plot(f_khz, T_min=0, T_max=35, z_min=0, z_max=5000, nb_points=100, c = 1500, S = 35, pH = 7.5):
+    T_vec = np.linspace(T_min, T_max, nb_points)    # Température (0 à 35°C)
+    z_vec = np.linspace(z_min, z_max, nb_points)  # Profondeur (0 à 5000m)
+    T_grid, z_grid = np.meshgrid(T_vec, z_vec)
+    #Compute alpha values for the grid
+    alpha_vals = compute_alpha(c=c, S=S, T=T_grid, z=z_grid, f=f_khz, pH=pH)
+    
+    plt.figure(figsize=(10, 6))
+    
+    # Colors
+    cp = plt.contourf(T_grid, z_grid, alpha_vals, levels=25, cmap='viridis')
+    cbar = plt.colorbar(cp)
+    cbar.set_label(f'Absorption $\\alpha$ (dB/km)')
+    
+    # Contours
+    contours = plt.contour(T_grid, z_grid, alpha_vals, levels=8, colors='white', alpha=0.3)
+    plt.clabel(contours, inline=True, fontsize=8, fmt='%.2f')
+    
+    # Esthétique et axes
+    plt.gca().invert_yaxis()
+    plt.title(f" $\\alpha$ coefficient at $f = {f_khz}$ kHz")
+    plt.xlabel("Temperature ($^\circ$C)")
+    plt.ylabel("Depth $z$ (m)")
+    plt.grid(True, linestyle='--', alpha=0.2)
+    plt.show()
